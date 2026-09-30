@@ -1,0 +1,129 @@
+---
+const columns = [
+  {
+    title: "Product",
+    links: [
+      { label: "README", href: "https://github.com/LVTD-LLC/nitpick#readme" },
+      { label: "Install", href: "https://github.com/LVTD-LLC/nitpick#install" },
+      { label: "Usage", href: "https://github.com/LVTD-LLC/nitpick#usage" },
+      { label: "Configuration", href: "https://github.com/LVTD-LLC/nitpick#configuration" },
+      { label: "Local models", href: "https://github.com/LVTD-LLC/nitpick#local-models" },
+    ],
+  },
+  {
+    title: "For agents",
+    links: [
+      { label: "nitpick-skills", href: "https://github.com/LVTD-LLC/nitpick-skills" },
+      { label: "Claude Code plugin", href: "https://github.com/LVTD-LLC/nitpick-skills" },
+      { label: "Codex plugin", href: "https://github.com/LVTD-LLC/nitpick-skills" },
+      { label: "AGENTS.md snippet", href: "#setup" },
+    ],
+  },
+  {
+    title: "Source",
+    links: [
+      { label: "GitHub", href: "https://github.com/LVTD-LLC/nitpick" },
+      { label: "Homebrew tap", href: "https://github.com/LVTD-LLC/homebrew-tap" },
+      { label: "Issues", href: "https://github.com/LVTD-LLC/nitpick/issues" },
+      { label: "MIT License", href: "https://github.com/LVTD-LLC/nitpick/blob/main/LICENSE" },
+    ],
+  },
+];
+---
+
+<footer class="footer">
+  <div class="footer-inner">
+    <div class="mark">
+      <svg viewBox="0 0 64 64" aria-hidden="true">
+        <path
+          fill="#fff"
+          d="M10 58V12h12v7.4C26 13.9 32.2 11 39.4 11 51.8 11 60 19 60 33.4V58H48V35.2C48 27.6 44 23 37.4 23 30.4 23 26 28 26 35.8V58z"
+        ></path>
+      </svg>
+      <div class="wordmark">nitpick</div>
+    </div>
+    <div class="cols">
+      {
+        columns.map((c) => (
+          <div class="col">
+            <div class="col-title">{c.title}</div>
+            {c.links.map((l) => (
+              <a href={l.href}>{l.label}</a>
+            ))}
+          </div>
+        ))
+      }
+    </div>
+    <div class="legal">
+      <span>&copy; {new Date().getFullYear()} LVTD LLC</span>
+      <span>Built by agents, reviewed by nitpick.</span>
+    </div>
+  </div>
+</footer>
+
+<style>
+  .footer {
+    background: var(--primary);
+    color: var(--ink);
+    padding: 80px var(--gutter) 40px;
+  }
+  .footer-inner {
+    max-width: var(--max);
+    margin: 0 auto;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 2fr);
+    gap: 48px;
+  }
+  .mark svg {
+    width: min(300px, 60vw);
+    height: auto;
+  }
+  .wordmark {
+    color: #fff;
+    font-size: clamp(36px, 4vw, 52px);
+    font-weight: 700;
+    letter-spacing: -0.03em;
+    margin-top: 24px;
+  }
+  .cols {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 32px;
+  }
+  .col {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    font-weight: 600;
+    font-size: 16px;
+  }
+  .col a:hover {
+    color: #fff;
+  }
+  .col-title {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    font-weight: 500;
+    margin-bottom: 6px;
+  }
+  .legal {
+    grid-column: 1 / -1;
+    display: flex;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+    margin-top: 48px;
+    font-weight: 600;
+    font-size: 14px;
+  }
+  @media (max-width: 800px) {
+    .footer-inner {
+      grid-template-columns: 1fr;
+    }
+    .cols {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
+</style>

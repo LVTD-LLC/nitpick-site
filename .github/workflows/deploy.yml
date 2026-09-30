@@ -1,0 +1,39 @@
+name: Deploy site
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-site
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Build site
+        run: npm run build
+      - name: Package for CapRover
+        run: tar -czf /tmp/nitpick-site.tar.gz Dockerfile nginx.conf captain-definition dist
+      - name: Deploy to CapRover
+        env:
+          CAPROVER_URL: ${{ secrets.CAPROVER_URL }}
+          CAPROVER_APP: ${{ secrets.CAPROVER_APP }}
+          CAPROVER_APP_TOKEN: ${{ secrets.CAPROVER_APP_TOKEN }}
+        run: |
+          npm install -g caprover
+          caprover deploy \
+            --caproverUrl "$CAPROVER_URL" \
+            --caproverApp "$CAPROVER_APP" \
+            --appToken "$CAPROVER_APP_TOKEN" \
+            --tarFile /tmp/nitpick-site.tar.gz

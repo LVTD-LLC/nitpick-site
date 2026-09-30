@@ -1,0 +1,9 @@
+node_modules
+src
+public
+scripts
+.astro
+.github
+.git
+.DS_Store
+npm-debug.log*

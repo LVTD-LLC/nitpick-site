@@ -1,0 +1,12 @@
+model = ["nvidia/nemotron-3-ultra-550b-a55b:free"]
+provider = "openrouter"
+fail_on = "high"
+timeout_secs = 420
+ignore = ["package-lock.json", "public/art/**"]
+instructions = """
+This is a static Astro marketing site for the nitpick CLI. There is no server code.
+Focus on: broken or misleading copy about nitpick's actual behavior, accessibility
+(contrast, focus states, alt text, keyboard access), responsive layout bugs, invalid
+HTML, and JavaScript errors in the small inline scripts. Do not review the generated
+PNG artwork. Treat every URL under github.com/LVTD-LLC as a valid link.
+"""

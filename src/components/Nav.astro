@@ -1,0 +1,94 @@
+---
+import Logo from "./Logo.astro";
+
+const links = [
+  { href: "#what", label: "What it does" },
+  { href: "#how", label: "How it works" },
+  { href: "#setup", label: "Setup" },
+  { href: "https://github.com/LVTD-LLC/nitpick#configuration", label: "Config" },
+];
+---
+
+<header class="nav">
+  <div class="nav-inner">
+    <a class="brand" href="/" aria-label="nitpick home">
+      <Logo size={30} />
+      <span class="brand-name">nitpick</span>
+    </a>
+    <nav class="links" aria-label="Primary">
+      {links.map((l) => <a href={l.href}>{l.label}</a>)}
+    </nav>
+    <div class="actions">
+      <a class="quiet" href="https://github.com/LVTD-LLC/nitpick-skills">For agents</a>
+      <a class="pill pill-ink" href="https://github.com/LVTD-LLC/nitpick">
+        GitHub
+        <svg viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M6 3l5 5-5 5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" /></svg>
+      </a>
+    </div>
+  </div>
+</header>
+
+<style>
+  .nav {
+    position: sticky;
+    top: 0;
+    z-index: 50;
+    background: rgba(255, 255, 255, 0.92);
+    backdrop-filter: blur(8px);
+    border-bottom: 1px solid var(--line);
+  }
+  .nav-inner {
+    max-width: var(--max);
+    margin: 0 auto;
+    height: 64px;
+    display: flex;
+    align-items: center;
+    gap: 24px;
+    padding: 0 var(--gutter);
+  }
+  .brand {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    font-weight: 700;
+    font-size: 19px;
+    letter-spacing: -0.02em;
+  }
+  .links {
+    display: flex;
+    gap: 28px;
+    margin-left: auto;
+    margin-right: auto;
+    font-weight: 600;
+    font-size: 15px;
+  }
+  .links a:hover {
+    color: var(--primary);
+  }
+  .actions {
+    display: flex;
+    align-items: center;
+    gap: 18px;
+    margin-left: auto;
+  }
+  .quiet {
+    font-weight: 600;
+    font-size: 15px;
+  }
+  .quiet:hover {
+    color: var(--primary);
+  }
+  .actions .pill {
+    height: 40px;
+    padding: 0 18px;
+    font-size: 15px;
+  }
+  @media (max-width: 900px) {
+    .links {
+      display: none;
+    }
+    .quiet {
+      display: none;
+    }
+  }
+</style>

@@ -23,7 +23,7 @@ nitpick           # AI review of your diff; fix or dismiss every high/blocker fi
 src/layouts/Base.astro       html head, fonts, nav + footer, skip link
 src/components/Nav.astro     header: logo, skill link, GitHub button
 src/components/Footer.astro  one-row orange footer
-src/components/Logo.astro    the orange "n" mark
+src/components/Logo.astro    the tweezers-and-robot logo (public/logo.png)
 src/components/Cast.astro    asciinema-player wrapper; reads the cast at build time to poster its last frame
 src/pages/index.astro        the landing page; the prompt and all copy live in the frontmatter
 src/pages/404.astro

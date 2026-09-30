@@ -97,8 +97,14 @@ const columns = [
     font-weight: 600;
     font-size: 16px;
   }
-  .col a:hover {
-    color: #fff;
+  .col a:hover,
+  .col a:focus-visible {
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+  .col a:focus-visible {
+    outline: 2px solid var(--ink);
+    outline-offset: 2px;
   }
   .col-title {
     font-family: var(--font-mono);

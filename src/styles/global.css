@@ -4,6 +4,7 @@
   --mute: #5b6470;
   --canvas: #ffffff;
   --primary: #ff4500;
+  --primary-text: #d63a00; /* 4.7:1 on white; use for small text, keep --primary for large text and fills */
   --primary-ink: #ffffff;
   --surface: #e1e9f2;
   --surface-2: #eef2f8;
@@ -261,8 +262,19 @@ p {
   transition: transform 120ms ease;
 }
 
-.mono-link:hover::after {
+.mono-link:hover,
+.mono-link:focus-visible {
+  color: var(--primary-text);
+}
+
+.mono-link:hover::after,
+.mono-link:focus-visible::after {
   transform: translateX(3px);
+}
+
+.mono-link:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 4px;
 }
 
 /* Code panels */

@@ -1,1306 +1,440 @@
 ---
 import Base from "../layouts/Base.astro";
+import Cast from "../components/Cast.astro";
 
-const title = "nitpick — AI code review for AI agents";
+const title = "nitpick — double-check the code your AI agent writes";
 const description =
-  "nitpick sends your diff, the changed files, and the code around them to a different model and prints structured findings your agent can loop on. One command, exit code 1 when it matters.";
+  "nitpick sends your diff, the changed files, and the code around them to a second model on OpenRouter and prints findings your agent fixes before opening the PR. One command, exit code 1 when it matters.";
 
-const clients = ["Claude Code", "Codex", "Cursor", "OpenCode", "OpenClaw", "Agent Skills"];
+// The prompt a user pastes into their coding agent. Everything in it must stay true to
+// github.com/LVTD-LLC/nitpick and github.com/LVTD-LLC/nitpick-skills.
+const prompt = `Set up nitpick, an AI code reviewer, on this machine and in this repo.
 
-const capabilities = [
-  {
-    title: "Loop until clean",
-    body: "Exit code 1 when any finding is at or above --fail-on. The agent fixes, reruns, and opens the PR when it hits 0.",
-    tone: "surface",
-  },
-  {
-    title: "Merge opinions",
-    body: "Pass -m more than once. Models run in parallel; findings that agree are merged and shown as (2/3 models).",
-    tone: "lemon",
-  },
-  {
-    title: "Focus the review",
-    body: "A -f note for this run, or standing instructions in .nitpick.toml. “Be strict about N+1 queries.”",
-    tone: "pink",
-  },
-  {
-    title: "Stay local",
-    body: "Point it at Ollama or llama.cpp. Nothing leaves the machine except the request to the provider you chose.",
-    tone: "mint",
-  },
-  {
-    title: "Machine-readable",
-    body: "--json returns the verdict, findings[], per-model summaries, token counts and cost as one object.",
-    tone: "sky",
-  },
-  {
-    title: "Scope it",
-    body: "--staged, --base develop, --range main..HEAD, or a path. Auto-detect compares against the merge-base.",
-    tone: "paper",
-  },
-  {
-    title: "Context in milliseconds",
-    body: "One parallel walk with the ripgrep crates, tree-sitter for six languages, ranked and trimmed to a token budget.",
-    tone: "lemon",
-  },
-  {
-    title: "One static binary",
-    body: "Rust. brew install or cargo install. Startup time is a feature, and there are no dependencies to babysit.",
-    tone: "surface",
-  },
-];
+1. Install the CLI if \`nitpick --version\` fails:
+   brew install LVTD-LLC/tap/nitpick
+   Without Homebrew (needs Rust 1.98+): cargo install --git https://github.com/LVTD-LLC/nitpick
+2. Install the nitpick skill for the harness you are running in:
+   Claude Code: claude plugin marketplace add LVTD-LLC/nitpick-skills && claude plugin install nitpick@nitpick-skills
+   Codex: codex plugin marketplace add LVTD-LLC/nitpick-skills && codex plugin add nitpick@nitpick-skills
+   OpenClaw: openclaw plugins install git:github.com/LVTD-LLC/nitpick-skills@main
+   Cursor, OpenCode, or anything else: git clone https://github.com/LVTD-LLC/nitpick-skills ~/.local/share/nitpick-skills && ~/.local/share/nitpick-skills/install.sh
+3. Check that NITPICK_OPENROUTER_API_KEY is exported. If it is not, ask me for an OpenRouter key and tell me how to export it in my shell. Never write the key into a file.
+4. From the repo root, run \`nitpick init\` if there is no .nitpick.toml and fill in its \`instructions\` with this project's conventions. Then run \`nitpick context\` to confirm it works, and tell me what you did.
+5. From now on, run \`nitpick\` before opening a pull request. Fix every finding at severity high or blocker and run it again until it exits 0.`;
 
-const setups = [
-  {
-    id: "claude",
-    label: "Set up Claude Code",
-    blurb: "Install the plugin from the nitpick-skills marketplace. It teaches the agent to install nitpick, run it before a PR, and loop on findings.",
-    code: `claude plugin marketplace add LVTD-LLC/nitpick-skills
-claude plugin install nitpick@nitpick-skills`,
-    chips: [["Plugin", "nitpick@nitpick-skills"], ["Also", "Codex", "Cursor", "OpenCode"]],
-  },
-  {
-    id: "codex",
-    label: "Set up Codex",
-    blurb: "Same skill, packaged for Codex. One marketplace add, one plugin add.",
-    code: `codex plugin marketplace add LVTD-LLC/nitpick-skills
-codex plugin add nitpick@nitpick-skills`,
-    chips: [["Plugin", "nitpick@nitpick-skills"], ["Format", "Agent Skills"]],
-  },
-  {
-    id: "agents",
-    label: "Add it to AGENTS.md",
-    blurb: "No plugin system? A few lines in AGENTS.md or CLAUDE.md is all an agent needs.",
-    code: `Before opening a PR, run \`nitpick\` from the repo root.
-Fix every finding at severity high or blocker, then run it
-again until it exits 0. Findings at medium or below are
-judgment calls; address or explain them in the PR.`,
-    chips: [["Works with", "any agent"], ["Exit codes", "0", "1", "2"]],
-  },
-  {
-    id: "config",
-    label: "Write a .nitpick.toml",
-    blurb: "Pin models, set the severity that fails the run, ignore generated files, and give the reviewer standing instructions.",
-    code: `model = ["stealth/space-bunny-alpha", "nvidia/nemotron-3-ultra-550b-a55b:free"]
-fail_on = "high"
-budget_tokens = 80000
-ignore = ["**/*.lock", "**/generated/**"]
-instructions = """
-This is a Django app. Be strict about N+1 queries.
-Ignore anything about docstrings.
-"""`,
-    chips: [["Precedence", "flags", "env", ".nitpick.toml"], ["Init", "nitpick init"]],
-  },
-  {
-    id: "local",
-    label: "Run a local model",
-    blurb: "Any OpenAI-compatible server works. Ollama and llama.cpp have presets and need no API key.",
-    code: `nitpick --provider ollama -m qwen3-coder:30b
-nitpick --provider llamacpp -m whatever-the-server-loaded
-nitpick --provider openai --base-url http://localhost:1234/v1 -m local-model`,
-    chips: [["Providers", "openrouter", "ollama", "llamacpp", "openai"]],
-  },
-];
+const brew = "brew install LVTD-LLC/tap/nitpick";
 
-const steps = [
+const how = [
   {
     n: "01",
-    title: "Install",
-    body: "One formula from the tap, or build from source with Rust 1.98 or newer. Either way you get a single static binary.",
-    code: "brew install LVTD-LLC/tap/nitpick",
+    title: "It packs the change, not just the diff.",
+    body: "The unified diff, the full post-change files, and unchanged code chosen for a reason: definitions the diff uses, call sites of what it changed, the modules it imports, and matching tests. Ranked and trimmed to a token budget in milliseconds.",
   },
   {
     n: "02",
-    title: "Set a key",
-    body: "An OpenRouter key is all nitpick needs. Skip it entirely for Ollama and llama.cpp.",
-    code: "export NITPICK_OPENROUTER_API_KEY=sk-or-\u2026",
+    title: "It asks a different model, through OpenRouter.",
+    body: "OpenRouter is the default provider, so one key gives nitpick every model there. Pick one with -m, or several at once; findings that agree are merged and marked (2/2 models). Point it at Ollama or llama.cpp instead and nothing leaves your machine.",
   },
   {
     n: "03",
-    title: "Run it",
-    body: "From the repo root, before the PR. Read the findings, fix what matters, run it again.",
-    code: "nitpick",
+    title: "It returns findings with an exit code.",
+    body: "Each finding cites path:line in the post-change file with a severity, a category, and a suggestion. Exit 1 when anything is at or above --fail-on (high by default), so the agent fixes, reruns, and only opens the PR at exit 0.",
   },
 ];
 
-const stats = [
-  { value: "1", label: "command before the PR", tone: "pink" },
-  { value: "6", label: "languages with tree-sitter", tone: "surface" },
-  { value: "80k", label: "tokens of context by default", tone: "lemon" },
-  { value: "MIT", label: "licensed, single static binary", tone: "sky" },
+const more = [
+  ["nitpick --staged", "only what is staged"],
+  ["nitpick --base develop", "diff against another branch"],
+  ["nitpick src/api/", "limit the review to some paths"],
+  ["nitpick -m openai/gpt-5.5 -m anthropic/claude-opus-5-5", "two models in parallel, findings merged"],
+  ['nitpick -f "Focus on the SQL."', "extra instructions for this run"],
+  ["nitpick --fail-on medium", "stricter exit code"],
+  ["nitpick --provider ollama -m qwen3-coder:30b", "local model, no key"],
+  ["nitpick init", "write a starter .nitpick.toml"],
 ];
 ---
 
 <Base title={title} description={description}>
   <!-- Hero -->
-  <section class="band no-rule hero">
-    <div class="frame hero-frame">
-      <div class="hero-copy">
-        <h1 class="h-display">
-          <span class="mark mark-primary">AI code review</span><br />
-          <span class="mark mark-primary">for AI agents.</span>
-        </h1>
-        <p class="lede hero-lede">
-          nitpick sends your diff, the changed files, and the code that matters to a different model, and prints
-          findings your agent can loop on.
+  <section class="band no-rule">
+    <div class="frame hero">
+      <p class="eyebrow">AI code review for AI agents</p>
+      <h1 class="h-display">
+        <span class="mark mark-primary">Double-check</span> the code your agent just wrote.
+      </h1>
+      <p class="lede hero-lede">
+        nitpick sends the diff, the changed files, and the code around them to a different model, and prints findings
+        the agent fixes before opening the PR. One command. Exit code 1 when it matters.
+      </p>
+    </div>
+  </section>
+
+  <!-- Install prompt -->
+  <section class="band" id="install">
+    <div class="frame install">
+      <div class="install-head">
+        <h2 class="h-section">Paste this into your agent.</h2>
+        <p class="muted install-sub">
+          It installs the CLI and the nitpick skill, checks for an OpenRouter key, and tells the agent to review before
+          every pull request. Works in Claude Code, Codex, Cursor, OpenClaw, OpenCode, and anything that reads Agent
+          Skills.
         </p>
-        <div class="hero-actions">
-          <button class="pill pill-ink pill-mono copy" data-copy="brew install LVTD-LLC/tap/nitpick" type="button">
-            <span class="copy-label">brew install LVTD-LLC/tap/nitpick</span>
+      </div>
+      <div class="prompt-box">
+        <div class="prompt-bar">
+          <span class="prompt-label">prompt</span>
+          <button class="pill pill-ink copy" data-copy={prompt} type="button">
+            <span class="copy-label">Copy prompt</span>
             <svg viewBox="0 0 16 16" fill="none" aria-hidden="true"><rect x="5" y="5" width="8" height="9" rx="1.5" stroke="currentColor" stroke-width="1.5" /><path d="M3 11V3.5A1.5 1.5 0 0 1 4.5 2H10" stroke="currentColor" stroke-width="1.5" /></svg>
           </button>
-          <a class="pill pill-soft" href="#setup">
-            Set up for agents
-            <svg viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M6 3l5 5-5 5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" /></svg>
-          </a>
         </div>
+        <pre class="prompt-text">{prompt}</pre>
       </div>
-      <img class="hero-art" src="/art/hero.png" width="1440" height="760" alt="" fetchpriority="high" />
+      <p class="by-hand">
+        <span class="muted">Rather do it yourself?</span>
+        <button class="pill pill-soft pill-mono copy" data-copy={brew} type="button">
+          <span class="copy-label">{brew}</span>
+          <svg viewBox="0 0 16 16" fill="none" aria-hidden="true"><rect x="5" y="5" width="8" height="9" rx="1.5" stroke="currentColor" stroke-width="1.5" /><path d="M3 11V3.5A1.5 1.5 0 0 1 4.5 2H10" stroke="currentColor" stroke-width="1.5" /></svg>
+        </button>
+        <a class="muted link" href="https://github.com/LVTD-LLC/nitpick#readme">then read the README</a>
+      </p>
     </div>
   </section>
 
-  <!-- Works with -->
-  <section class="band">
-    <div class="frame pad clients">
-      <p class="clients-title">Works with the agent you already run.</p>
-      <ul class="clients-grid" role="list">
-        {clients.map((c) => <li>{c}</li>)}
-      </ul>
-    </div>
-  </section>
-
-  <!-- What it sends -->
-  <section class="band" id="what">
+  <!-- How it works -->
+  <section class="band" id="how">
     <div class="frame pad">
-      <h2 class="h-section">See what <span class="accent">a second model</span> sees.</h2>
+      <h2 class="h-section">How it works</h2>
+      <ol class="how" role="list">
+        {
+          how.map((h) => (
+            <li class="how-item">
+              <span class="how-n">{h.n}</span>
+              <h3 class="h-card">{h.title}</h3>
+              <p class="muted">{h.body}</p>
+            </li>
+          ))
+        }
+      </ol>
+      <p class="how-key">
+        <span class="mark mark-lemon">export NITPICK_OPENROUTER_API_KEY=sk-or-…</span>
+        <span class="muted">is the whole setup. Get a key at openrouter.ai; models are billed per token, and several are free.</span>
+      </p>
+    </div>
+  </section>
+
+  <!-- Recordings -->
+  <section class="band" id="output">
+    <div class="frame pad">
+      <h2 class="h-section">What it looks like</h2>
       <p class="lede section-lede">
-        Not just the diff. nitpick packs the whole changed file and the code around it, each piece labeled with why it
-        is there.
+        Real recordings against a branch of nitpick's own repo, with two one-line bugs planted in it. Scrub the
+        timelines or just read the final screens.
       </p>
 
-      <div class="feature">
-        <div class="feature-copy">
-          <h3 class="h-card">The diff, plus the whole file</h3>
+      <div class="demo">
+        <div class="demo-copy">
+          <h3 class="h-card">Review the working tree</h3>
           <p class="muted">
-            The unified diff and the full post-change content of every changed file, numbered so findings cite exact
-            lines. Big files are windowed around the change.
+            The default. Progress on stderr, the review on stdout. This repo's .nitpick.toml names two models, so both
+            run and their findings are merged.
           </p>
-          <a class="mono-link" href="https://github.com/LVTD-LLC/nitpick#what-gets-sent">What gets sent</a>
         </div>
-        <div class="feature-panel tone-surface">
-          <pre class="terminal"><span class="dim">## Changed files</span>
-
-<span class="dim">### src/diff.rs (post-change, numbered)</span>
-<span class="dim"> 58 │</span> /// Inclusive line ranges touched by each hunk.
-<span class="dim"> 59 │</span> pub fn new_ranges(&amp;self) -&gt; Vec&lt;(usize, usize)&gt; {'{'}
-<span class="dim"> 60 │</span>     self.hunks
-<span class="dim"> 61 │</span>         .iter()
-<span class="hot"> 62 │</span>         .map(|h| (h.new_start, h.new_start + h.new_len))
-<span class="dim"> 63 │</span>         .collect()
-<span class="dim"> 64 │</span> {'}'}</pre>
-        </div>
+        <Cast src="/casts/review.cast" command="nitpick" rows={52} />
       </div>
 
-      <div class="feature">
-        <div class="feature-copy">
-          <h3 class="h-card">Related code, labeled with why</h3>
+      <div class="demo">
+        <div class="demo-copy">
+          <h3 class="h-card">See what would be sent</h3>
           <p class="muted">
-            Definitions of symbols the diff references. Call sites of symbols it changed. Modules it imports, files
-            that import it, and the tests that match. Ranked and trimmed to a token budget.
+            No model call. The stats show what the payload costs in tokens; the tags list every file and snippet with
+            the reason it was included.
           </p>
-          <a class="mono-link" href="https://github.com/LVTD-LLC/nitpick#what-gets-sent">How context is chosen</a>
         </div>
-        <div class="feature-panel tone-surface-2">
-          <pre class="terminal"><span class="dim">## Related context (unchanged code)</span>
-
-<span class="tag">call site of new_ranges</span>  <span class="dim">src/context.rs:441</span>
-    for (s, e) in diff.new_ranges() {'{'}
-        let window = &amp;lines[(s - 1)..e];
-
-<span class="tag">definition of Hunk</span>  <span class="dim">src/diff.rs:12</span>
-    pub struct Hunk {'{'} pub new_start: usize, pub new_len: usize, .. {'}'}
-
-<span class="tag">tests matching src/diff.rs</span>  <span class="dim">src/diff.rs:210</span>
-    #[test] fn ranges_are_inclusive() {'{'} .. {'}'}</pre>
-        </div>
+        <Cast src="/casts/context.cast" command={'nitpick context --json | jq .stats\nnitpick context | grep -E "^<(file|snippet|importers) "'}
+          rows={30}
+        />
       </div>
 
-      <div class="feature">
-        <div class="feature-copy">
-          <h3 class="h-card">Structured findings with an exit code</h3>
+      <div class="demo">
+        <div class="demo-copy">
+          <h3 class="h-card">Get it as JSON</h3>
           <p class="muted">
-            Severity, category, path:line in the post-change file, and a suggestion. Exit 1 when anything is at or
-            above the level you chose, so the agent knows to keep going.
+            The same review as one object: verdict, findings with file and line, per-model summaries, token counts and
+            cost. Built for the agent, not the human.
           </p>
-          <a class="mono-link" href="https://github.com/LVTD-LLC/nitpick#exit-codes">Exit codes</a>
         </div>
-        <div class="feature-panel tone-surface">
-          <pre class="terminal"><span class="dim">$</span> nitpick
-<span class="dim">nitpick: working tree vs merge-base with main (3f1c2a9) · 2 file(s) · ~7.8k tokens context</span>
-<span class="dim">nitpick: stealth/space-bunny-alpha done in 41.2s, 2 finding(s)</span>
-
-# nitpick: <span class="hot">request changes</span>
-
-## Findings (2)
-
-### High
-- <span class="key">src/diff.rs:62</span> new_ranges now returns an exclusive end <span class="dim">[bug]</span>
-  Both callers treat the range as inclusive; `windowed_listing`
-  slices `lines[..e]` and will panic on the last hunk of a file.
-  <span class="ok">Suggestion:</span> restore `h.new_start + h.new_len - 1`.
-
-<span class="hot">2 finding(s) at or above `high`. Exit code 1.</span></pre>
-        </div>
+        <Cast src="/casts/json.cast" command='nitpick --json -m stealth/space-bunny-alpha | jq "{verdict, findings: [.findings[] | {file, line, severity, title}]}"'
+          rows={24}
+        />
       </div>
 
-      <div class="feature">
-        <div class="feature-copy">
-          <h3 class="h-card">Any model. Any provider.</h3>
-          <p class="muted">
-            OpenRouter by default. Ollama and llama.cpp presets for local review. Any OpenAI-compatible server with
-            --base-url. Structured output is best effort; parsing is lenient either way.
-          </p>
-          <a class="mono-link" href="https://github.com/LVTD-LLC/nitpick#local-models">Local models</a>
-        </div>
-        <div class="feature-panel tone-surface-2">
-          <pre class="terminal"><span class="dim">$</span> nitpick -m openai/gpt-5.5 -m anthropic/claude-opus-5-5
-<span class="dim">$</span> nitpick --provider ollama -m qwen3-coder:30b
-<span class="dim">$</span> nitpick -f <span class="str">"Focus on the SQL; we had injection bugs here before."</span>
-<span class="dim">$</span> nitpick --staged --fail-on medium --json
-<span class="dim">$</span> nitpick context   <span class="dim"># exact payload, no network</span></pre>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- Architectural grid strip -->
-  <div class="band grid-strip" aria-hidden="true">
-    <div class="frame">
-      <div class="cells">
-        {Array.from({ length: 12 }).map((_, i) => <span class:list={["cell", { c1: i === 1, c2: i === 9 }]} />)}
-      </div>
-    </div>
-  </div>
-
-  <!-- Bridge -->
-  <section class="band" id="how">
-    <div class="frame bridge">
-      <div class="bridge-copy">
-        <h2 class="h-section"><span class="mark mark-lemon">Review your diff like a second engineer would.</span></h2>
-        <p class="muted bridge-p">The diff alone is not enough to judge a change.</p>
-        <p class="muted bridge-p">
-          nitpick reads around it, the way a careful reviewer opens the callers and the tests before commenting.
-        </p>
-        <p class="mono-line">
-          Your <span class="mark mark-sky">DIFF</span> plus <span class="mark mark-sky">CONTEXT</span> for a <span
-            class="mark mark-sky">DIFFERENT MODEL</span>
-        </p>
-        <ul class="mono-list" role="list">
-          <li>Definitions of symbols the diff references</li>
-          <li>Call sites of symbols the diff changed</li>
-          <li>Modules the changed files import</li>
-          <li>Files that import each changed file</li>
-          <li>Tests that match each changed file</li>
-          <li>Ranked, then trimmed to budget_tokens</li>
-        </ul>
-      </div>
-      <div class="bridge-art">
-        <img src="/art/field.png" width="960" height="600" alt="" loading="lazy" />
-        <div class="window bridge-window">
-          <div class="window-bar">
-            <span class="dot"></span><span class="dot"></span><span class="dot"></span>
-            <span class="url">nitpick context --json</span>
-          </div>
-          <div class="window-body">
-            <pre class="terminal">{'{'}
-  <span class="key">"changed_files"</span>: 2,
-  <span class="key">"snippets"</span>: 6,
-  <span class="key">"dropped"</span>: 0,
-  <span class="key">"tokens"</span>: 7812,
-  <span class="key">"budget_tokens"</span>: 80000,
-  <span class="key">"elapsed_ms"</span>: 175
-{'}'}</pre>
-          </div>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- Capabilities -->
-  <section class="band">
-    <div class="frame pad">
-      <h2 class="h-section">Anything <span class="accent">a reviewer</span> would check, before the PR.</h2>
-      <p class="lede section-lede">Automate the second opinion. Keep the human for the interesting parts.</p>
-      <div class="cards">
-        {
-          capabilities.map((c, i) => (
-            <article class="card">
-              <div class:list={["card-art", `tone-${c.tone}`]} aria-hidden="true">
-                <span class="card-glyph" data-i={i} />
-              </div>
-              <h3 class="h-card">{c.title}</h3>
-              <p class="muted">{c.body}</p>
-            </article>
-          ))
-        }
-      </div>
-    </div>
-  </section>
-
-  <!-- Setup selector -->
-  <section class="band" id="setup">
-    <div class="frame pad">
-      <h2 class="h-section center">There&rsquo;s a setup for that</h2>
-      <div class="selector" data-selector>
-        <div class="selector-list" role="tablist" aria-label="Setup options">
+      <div class="more">
+        <h3 class="h-card">More commands</h3>
+        <dl class="more-list">
           {
-            setups.map((s, i) => (
-              <button
-                class="selector-item"
-                role="tab"
-                id={`tab-${s.id}`}
-                aria-controls={`panel-${s.id}`}
-                aria-selected={i === 0 ? "true" : "false"}
-                tabindex={i === 0 ? 0 : -1}
-                type="button"
-              >
-                <span>{s.label}</span>
-                <svg viewBox="0 0 16 16" fill="none" aria-hidden="true">
-                  <path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" />
-                </svg>
-              </button>
-            ))
-          }
-        </div>
-        <div class="selector-detail">
-          {
-            setups.map((s, i) => (
-              <div
-                class="selector-panel"
-                role="tabpanel"
-                id={`panel-${s.id}`}
-                aria-labelledby={`tab-${s.id}`}
-                hidden={i !== 0}
-              >
-                <button class="pill pill-ink copy" data-copy={s.code} type="button">
-                  <span class="copy-label">Copy</span>
-                </button>
-                <p class="selector-blurb">{s.blurb}</p>
-                <pre class="terminal selector-code">{s.code}</pre>
-                <div class="chips">
-                  {s.chips.map(([k, ...vals]) => (
-                    <div class="chip-row">
-                      <span class="chip-key">{k}</span>
-                      {vals.map((v, j) => (
-                        <span class:list={["chip", { "chip-ink": j === vals.length - 1 && vals.length > 1 }]}>{v}</span>
-                      ))}
-                    </div>
-                  ))}
-                </div>
+            more.map(([cmd, desc]) => (
+              <div class="more-row">
+                <dt>
+                  <code>{cmd}</code>
+                </dt>
+                <dd class="muted">{desc}</dd>
               </div>
             ))
           }
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- Steps -->
-  <section class="band">
-    <div class="frame pad">
-      <h2 class="h-section">Zero setup. <span class="accent">Real findings.</span></h2>
-      <p class="lede section-lede">Install the binary, set a key, run it from the repo root.</p>
-      <div class="steps">
-        {
-          steps.map((s) => (
-            <article class="step">
-              <div class="step-art">
-                <span class="step-n">{s.n}</span>
-                <pre class="terminal step-code">{s.code}</pre>
-              </div>
-              <h3 class="h-card">{s.title}</h3>
-              <p class="muted">{s.body}</p>
-            </article>
-          ))
-        }
-      </div>
-    </div>
-  </section>
-
-  <!-- Closing CTA -->
-  <section class="band">
-    <div class="frame cta">
-      <h2 class="h-section">Every diff reviewed before the PR.</h2>
-      <p class="muted">No GitHub Action. No waiting for CI.</p>
-      <p class="muted">The agent that wrote the code gets a second opinion in one command.</p>
-      <div class="hero-actions">
-        <a class="pill pill-ink" href="https://github.com/LVTD-LLC/nitpick#install">
-          Install nitpick
+        </dl>
+        <a class="pill pill-soft" href="https://github.com/LVTD-LLC/nitpick#usage">
+          Every flag, in the README
           <svg viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M6 3l5 5-5 5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" /></svg>
         </a>
-        <a class="pill pill-soft" href="https://github.com/LVTD-LLC/nitpick#readme">
-          Read the README
-          <svg viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M6 3l5 5-5 5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" /></svg>
-        </a>
-      </div>
-    </div>
-  </section>
-
-  <!-- Big statement -->
-  <section class="band">
-    <div class="frame statement">
-      <div class="statement-copy">
-        <h2 class="h-section"><span class="mark mark-pink">Don&rsquo;t wait for CI.</span><br /><span class="mark mark-pink">Review now.</span></h2>
-      </div>
-      <img class="statement-art" src="/art/peak.png" width="900" height="780" alt="" loading="lazy" />
-      <div class="statement-big">
-        <p class="eyebrow"><span class="swatch"></span>WHAT THE AGENT WAITS FOR</p>
-        <p class="big-number"><span class="mark mark-surface">one command.</span></p>
-      </div>
-    </div>
-  </section>
-
-  <div class="band grid-strip" aria-hidden="true">
-    <div class="frame">
-      <div class="cells">
-        {Array.from({ length: 12 }).map((_, i) => <span class:list={["cell", { c3: i === 10 }]} />)}
-      </div>
-    </div>
-  </div>
-
-  <!-- Stats -->
-  <section class="band">
-    <div class="frame pad stats-wrap">
-      <h2 class="h-section">Built for agents</h2>
-      <div class="stats">
-        {
-          stats.map((s) => (
-            <div class:list={["stat", `tone-${s.tone}`]}>
-              <div class="stat-value">{s.value}</div>
-              <div class="stat-label">{s.label}</div>
-            </div>
-          ))
-        }
       </div>
     </div>
   </section>
 </Base>
 
 <script>
-  // Copy buttons
+  // Clipboard API first; fall back to a selection copy where the API is missing or denied.
+  async function copyText(text: string): Promise<boolean> {
+    try {
+      await navigator.clipboard.writeText(text);
+      return true;
+    } catch {
+      const area = document.createElement("textarea");
+      area.value = text;
+      area.setAttribute("readonly", "");
+      area.style.position = "fixed";
+      area.style.opacity = "0";
+      document.body.append(area);
+      area.select();
+      // execCommand is deprecated but remains the only synchronous fallback browsers still honor.
+      const legacy = document as unknown as { execCommand(command: string): boolean };
+      let ok = false;
+      try {
+        ok = legacy.execCommand("copy");
+      } catch {
+        ok = false;
+      }
+      area.remove();
+      return ok;
+    }
+  }
+
   for (const btn of document.querySelectorAll<HTMLButtonElement>(".copy")) {
     btn.addEventListener("click", async () => {
-      const text = btn.dataset.copy ?? "";
       const label = btn.querySelector<HTMLElement>(".copy-label");
       const original = label?.textContent ?? "";
-      try {
-        await navigator.clipboard.writeText(text);
-        if (label) label.textContent = "Copied";
-      } catch {
-        if (label) label.textContent = "Copy failed";
-      }
+      const ok = await copyText(btn.dataset.copy ?? "");
+      if (label) label.textContent = ok ? "Copied" : "Copy failed";
       window.setTimeout(() => {
         if (label) label.textContent = original;
       }, 1400);
     });
   }
-
-  // Setup selector tabs
-  const root = document.querySelector<HTMLElement>("[data-selector]");
-  if (root) {
-    const tabs = Array.from(root.querySelectorAll<HTMLButtonElement>("[role=tab]"));
-    const panels = Array.from(root.querySelectorAll<HTMLElement>("[role=tabpanel]"));
-    const select = (i: number, focus = false) => {
-      tabs.forEach((t, j) => {
-        const on = i === j;
-        t.setAttribute("aria-selected", on ? "true" : "false");
-        t.tabIndex = on ? 0 : -1;
-        panels[j].hidden = !on;
-      });
-      if (focus) tabs[i].focus();
-    };
-    tabs.forEach((t, i) => {
-      t.addEventListener("click", () => select(i));
-      t.addEventListener("keydown", (e) => {
-        if (e.key === "ArrowDown" || e.key === "ArrowRight") {
-          e.preventDefault();
-          select((i + 1) % tabs.length, true);
-        } else if (e.key === "ArrowUp" || e.key === "ArrowLeft") {
-          e.preventDefault();
-          select((i - 1 + tabs.length) % tabs.length, true);
-        } else if (e.key === "Home") {
-          e.preventDefault();
-          select(0, true);
-        } else if (e.key === "End") {
-          e.preventDefault();
-          select(tabs.length - 1, true);
-        }
-      });
-    });
-  }
 </script>
 
 <style>
-  /* Tones */
-  .tone-surface { background: var(--surface); }
-  .tone-surface-2 { background: var(--surface-2); }
-  .tone-lemon { background: var(--lemon); }
-  .tone-pink { background: var(--pink); }
-  .tone-sky { background: var(--sky); }
-  .tone-mint { background: var(--mint); }
-  .tone-paper { background: var(--paper); }
-
-  .center { text-align: center; }
-
   .section-lede {
     margin-top: 16px;
     max-width: 62ch;
   }
 
   /* Hero */
-  .hero-frame {
+  .hero {
     background: var(--surface);
-    position: relative;
-    overflow: hidden;
-  }
-  .hero-copy {
-    text-align: center;
-    padding: 88px var(--gutter) 32px;
-    position: relative;
-    z-index: 1;
+    padding: 88px var(--gutter) 72px;
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 28px;
+    text-align: center;
+    gap: 24px;
   }
-  .hero-copy h1 {
-    line-height: 1.18;
+  .hero h1 {
+    max-width: 18ch;
+    line-height: 1.12;
   }
   .hero-lede {
-    max-width: 44ch;
-  }
-  .hero-actions {
-    display: flex;
-    gap: 12px;
-    justify-content: center;
-    flex-wrap: wrap;
-  }
-  .hero-art {
-    width: 100%;
-    height: auto;
-    image-rendering: pixelated;
-    margin-top: -8px;
+    max-width: 52ch;
   }
   @media (max-width: 720px) {
-    .hero-copy {
-      padding-top: 56px;
-    }
-    .hero-actions .pill-mono {
-      font-size: 13px;
-      padding: 0 14px;
+    .hero {
+      padding: 56px var(--gutter) 48px;
     }
   }
 
-  /* Clients strip */
-  .clients {
-    padding-top: 56px;
-    padding-bottom: 64px;
-  }
-  .clients-title {
-    font-size: 21px;
-    font-weight: 600;
-    letter-spacing: -0.01em;
-    margin-bottom: 24px;
-  }
-  .clients-grid {
-    list-style: none;
-    margin: 0;
-    padding: 0;
-    display: grid;
-    grid-template-columns: repeat(6, minmax(0, 1fr));
-    gap: 8px;
-  }
-  .clients-grid li {
-    background: var(--paper);
-    height: 88px;
-    display: grid;
-    place-items: center;
-    font-weight: 700;
-    font-size: 18px;
-    letter-spacing: -0.01em;
-    color: var(--ink-2);
-  }
-  @media (max-width: 900px) {
-    .clients-grid {
-      grid-template-columns: repeat(3, minmax(0, 1fr));
-    }
-  }
-  @media (max-width: 520px) {
-    .clients-grid {
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-    }
-    .clients-grid li {
-      height: 72px;
-      font-size: 16px;
-    }
-  }
-
-  /* Features */
-  .feature {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(0, 2fr);
-    gap: 24px;
-    margin-top: 80px;
-  }
-  .feature-copy {
-    border-top: 1px solid var(--line);
-    padding-top: 18px;
+  /* Install prompt */
+  .install {
+    padding: 80px var(--gutter);
     display: flex;
     flex-direction: column;
-    gap: 14px;
-    align-items: flex-start;
+    gap: 28px;
   }
-  .feature-panel {
-    padding: 36px 40px;
-    min-height: 320px;
-    display: flex;
-    align-items: center;
-    overflow: hidden;
+  .install-sub {
+    margin-top: 14px;
+    max-width: 64ch;
   }
-  .feature-panel .terminal {
-    width: 100%;
-  }
-  @media (max-width: 900px) {
-    .feature {
-      grid-template-columns: 1fr;
-      gap: 16px;
-      margin-top: 56px;
-    }
-    .feature-panel {
-      padding: 24px 18px;
-      min-height: 0;
-    }
-  }
-
-  /* Grid strip */
-  .grid-strip .cells {
-    display: grid;
-    grid-template-columns: repeat(12, minmax(0, 1fr));
-    height: 100px;
-  }
-  .grid-strip .cell {
-    border-right: 1px solid var(--line);
-    position: relative;
-  }
-  .grid-strip .cell:last-child {
-    border-right: 0;
-  }
-  .grid-strip .c1::before {
-    content: "";
-    position: absolute;
-    left: 20%;
-    top: 0;
-    width: 22px;
-    height: 22px;
-    background: #1400ff;
-  }
-  .grid-strip .c2::before {
-    content: "";
-    position: absolute;
-    right: 0;
-    bottom: 0;
-    width: 260%;
-    height: 22px;
-    background: #00a8ff;
-  }
-  .grid-strip .c3::before {
-    content: "";
-    position: absolute;
-    left: 0;
-    bottom: 0;
-    width: 28px;
-    height: 20px;
-    background: var(--lemon);
-  }
-  @media (max-width: 720px) {
-    .grid-strip .cells {
-      height: 56px;
-      grid-template-columns: repeat(6, minmax(0, 1fr));
-    }
-    .grid-strip .cell:nth-child(n + 7) {
-      display: none;
-    }
-  }
-
-  /* Bridge */
-  .bridge {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-  }
-  .bridge-copy {
-    padding: 64px var(--gutter) 72px;
-    border-right: 1px solid var(--line);
-    display: flex;
-    flex-direction: column;
-    gap: 18px;
-  }
-  .bridge-copy h2 {
-    line-height: 1.3;
-  }
-  .bridge-p {
-    max-width: 38ch;
-  }
-  .mono-line {
-    font-family: var(--font-mono);
-    font-size: 14px;
-    margin-top: 16px;
-  }
-  .mono-list {
-    list-style: none;
-    margin: 0;
-    padding: 0;
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-    font-family: var(--font-mono);
-    font-size: 14px;
-  }
-  .mono-list li::before {
-    content: "";
-    display: inline-block;
-    width: 12px;
-    height: 12px;
-    background: var(--sky);
-    margin-right: 12px;
-    vertical-align: -1px;
-  }
-  .bridge-art {
-    position: relative;
-    min-height: 420px;
-    overflow: hidden;
-  }
-  .bridge-art img {
-    position: absolute;
-    inset: 0;
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    image-rendering: pixelated;
-  }
-  .bridge-window {
-    position: absolute;
-    left: 10%;
-    right: 10%;
-    top: 50%;
-    transform: translateY(-50%);
-  }
-  @media (max-width: 900px) {
-    .bridge {
-      grid-template-columns: 1fr;
-    }
-    .bridge-copy {
-      border-right: 0;
-      border-bottom: 1px solid var(--line);
-    }
-    .bridge-art {
-      min-height: 360px;
-    }
-    .bridge-window {
-      left: 6%;
-      right: 6%;
-    }
-  }
-
-  /* Cards */
-  .cards {
-    display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-    gap: 24px 20px;
-    margin-top: 64px;
-  }
-  .card {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-  }
-  .card-art {
-    height: 220px;
-    margin-bottom: 10px;
-    position: relative;
-    overflow: hidden;
-  }
-  .card-glyph {
-    position: absolute;
-    inset: 0;
-  }
-  /* Eight small compositions, one per capability. */
-  .card-glyph[data-i="0"]::before {
-    content: "";
-    position: absolute;
-    left: 28px;
-    top: 28px;
-    width: 120px;
-    height: 120px;
-    border: 3px solid var(--ink);
-    border-right-color: transparent;
-    border-radius: 50%;
-  }
-  .card-glyph[data-i="0"]::after {
-    content: "exit 0";
-    position: absolute;
-    left: 165px;
-    top: 82px;
-    font-family: var(--font-mono);
-    font-size: 13px;
-    background: var(--ink);
-    color: #fff;
-    padding: 4px 8px;
-  }
-  .card-glyph[data-i="1"]::before,
-  .card-glyph[data-i="1"]::after {
-    content: "";
-    position: absolute;
-    top: 40px;
-    width: 130px;
-    height: 130px;
-    border-radius: 50%;
-    border: 2px solid var(--ink);
-    background: rgba(255, 255, 255, 0.5);
-  }
-  .card-glyph[data-i="1"]::before {
-    left: 30px;
-  }
-  .card-glyph[data-i="1"]::after {
-    left: 110px;
-    border-color: var(--primary);
-  }
-  .card-glyph[data-i="2"]::before {
-    content: "-f \"Focus on the SQL\"";
-    position: absolute;
-    left: 24px;
-    top: 90px;
-    font-family: var(--font-mono);
-    font-size: 13px;
+  .prompt-box {
+    border: 1px solid var(--line-strong);
     background: #fff;
-    padding: 8px 12px;
-    border: 1px solid var(--ink);
   }
-  .card-glyph[data-i="2"]::after {
-    content: "";
-    position: absolute;
-    right: 28px;
-    top: 40px;
-    width: 26px;
-    height: 26px;
-    border-radius: 50%;
-    background: var(--primary);
-  }
-  .card-glyph[data-i="3"]::before {
-    content: "localhost:11434";
-    position: absolute;
-    left: 24px;
-    right: 24px;
-    top: 34px;
-    font-family: var(--font-mono);
-    font-size: 12px;
-    color: var(--mute);
-    background: #fff;
-    padding: 6px 12px;
-    border-radius: 999px;
-  }
-  .card-glyph[data-i="3"]::after {
-    content: "";
-    position: absolute;
-    left: 24px;
-    right: 24px;
-    top: 78px;
-    bottom: 24px;
-    background: repeating-linear-gradient(0deg, transparent 0 14px, rgba(255, 255, 255, 0.85) 14px 22px);
-  }
-  .card-glyph[data-i="4"]::before {
-    content: "{ \"verdict\": \"approve\", \"findings\": [] }";
-    position: absolute;
-    left: 24px;
-    right: 24px;
-    top: 84px;
-    font-family: var(--font-mono);
-    font-size: 12px;
-    background: #fff;
-    padding: 10px 12px;
-    white-space: normal;
-    line-height: 1.5;
-  }
-  .card-glyph[data-i="5"]::before {
-    content: "main..HEAD";
-    position: absolute;
-    left: 24px;
-    top: 40px;
-    font-family: var(--font-mono);
-    font-size: 13px;
-    background: #fff;
-    padding: 6px 10px;
-  }
-  .card-glyph[data-i="5"]::after {
-    content: "";
-    position: absolute;
-    left: 24px;
-    right: 24px;
-    top: 100px;
-    height: 2px;
-    background: var(--ink);
-    box-shadow: 0 30px 0 var(--ink), 0 60px 0 var(--ink);
-    opacity: 0.6;
-  }
-  .card-glyph[data-i="6"]::before {
-    content: "175 ms";
-    position: absolute;
-    left: 24px;
-    top: 40px;
-    font-size: 40px;
-    font-weight: 600;
-    letter-spacing: -0.03em;
-  }
-  .card-glyph[data-i="6"]::after {
-    content: "";
-    position: absolute;
-    left: 24px;
-    right: 24px;
-    bottom: 28px;
-    height: 34px;
-    background: repeating-linear-gradient(90deg, var(--ink) 0 3px, transparent 3px 9px);
-    opacity: 0.35;
-  }
-  .card-glyph[data-i="7"]::before {
-    content: "";
-    position: absolute;
-    left: 50%;
-    top: 50%;
-    width: 84px;
-    height: 84px;
-    transform: translate(-50%, -50%) rotate(45deg);
-    background: var(--ink);
-  }
-  .card-glyph[data-i="7"]::after {
-    content: "n";
-    position: absolute;
-    left: 50%;
-    top: 50%;
-    transform: translate(-50%, -54%);
-    color: #fff;
-    font-weight: 700;
-    font-size: 34px;
-  }
-  @media (max-width: 1100px) {
-    .cards {
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-    }
-  }
-  @media (max-width: 560px) {
-    .cards {
-      grid-template-columns: 1fr;
-    }
-    .card-art {
-      height: 180px;
-    }
-  }
-
-  /* Selector */
-  .selector {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-    margin-top: 64px;
-  }
-  .selector-list {
-    background: var(--paper);
-    padding: 56px 48px;
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-    justify-content: center;
-  }
-  .selector-item {
+  .prompt-bar {
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: 12px;
-    width: 100%;
-    max-width: 420px;
-    padding: 12px 14px;
-    background: #fff;
-    border: 1px solid var(--ink);
-    font: inherit;
-    font-weight: 600;
-    color: var(--ink);
-    text-align: left;
-    cursor: pointer;
-  }
-  .selector-item svg {
-    width: 16px;
-    height: 16px;
-    flex: none;
-  }
-  .selector-item[aria-selected="true"] {
+    padding: 10px 12px 10px 18px;
+    border-bottom: 1px solid var(--line-strong);
     background: var(--lemon);
   }
-  .selector-item:hover {
-    background: var(--lemon);
-  }
-  .selector-item:focus-visible {
-    outline: 2px solid var(--primary);
-    outline-offset: 2px;
-  }
-  .selector-detail {
-    background: var(--lemon);
-    padding: 56px 56px;
-    min-height: 420px;
-  }
-  .selector-panel {
-    display: flex;
-    flex-direction: column;
-    gap: 22px;
-    align-items: flex-start;
-  }
-  .selector-panel[hidden] {
-    display: none;
-  }
-  .selector-panel .pill {
-    border-radius: 0;
-    height: 42px;
-  }
-  .selector-blurb {
-    font-size: 17px;
-    line-height: 1.5;
-    max-width: 52ch;
-  }
-  .selector-code {
-    width: 100%;
-    background: rgba(255, 255, 255, 0.75);
-    padding: 16px 18px;
-    white-space: pre-wrap;
-    word-break: break-word;
-  }
-  .chips {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-  }
-  .chip-row {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    flex-wrap: wrap;
-  }
-  .chip-key {
+  .prompt-label {
     font-family: var(--font-mono);
     font-size: 12px;
     letter-spacing: 0.1em;
     text-transform: uppercase;
-    margin-right: 6px;
   }
-  .chip {
+  .prompt-bar .pill {
+    height: 38px;
+    border-radius: 0;
+  }
+  .prompt-text {
+    margin: 0;
+    padding: 20px 22px;
     font-family: var(--font-mono);
-    font-size: 13px;
-    border: 1px solid var(--ink);
-    border-radius: 999px;
-    padding: 4px 12px;
-    background: #fff;
+    font-size: 13.5px;
+    line-height: 1.6;
+    white-space: pre-wrap;
+    word-break: break-word;
+    color: var(--ink);
   }
-  .chip-ink {
-    background: var(--ink);
-    color: #fff;
+  .by-hand {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
   }
-  @media (max-width: 900px) {
-    .selector {
-      grid-template-columns: 1fr;
+  .by-hand .pill {
+    height: 38px;
+  }
+  .link {
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+  .link:hover,
+  .link:focus-visible {
+    color: var(--primary-text);
+  }
+  .link:focus-visible {
+    outline: 2px solid var(--primary);
+    outline-offset: 3px;
+  }
+  @media (max-width: 720px) {
+    .install {
+      padding: 56px var(--gutter);
     }
-    .selector-list,
-    .selector-detail {
-      padding: 28px var(--gutter);
+    .prompt-text {
+      padding: 16px;
+      font-size: 12.5px;
     }
-    .selector-detail {
-      min-height: 0;
+    .by-hand .pill-mono {
+      font-size: 12px;
+      padding: 0 12px;
     }
   }
 
-  /* Steps */
-  .steps {
+  /* How it works */
+  .how {
+    list-style: none;
+    margin: 48px 0 0;
+    padding: 0;
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 24px;
-    margin-top: 64px;
+    gap: 32px 24px;
   }
-  .step {
+  .how-item {
+    border-top: 1px solid var(--line-strong);
+    padding-top: 18px;
     display: flex;
     flex-direction: column;
-    gap: 10px;
+    gap: 12px;
   }
-  .step-art {
-    height: 280px;
-    background-image: url("/art/field.png");
-    background-size: cover;
-    background-position: center;
-    image-rendering: pixelated;
-    position: relative;
-    margin-bottom: 10px;
-  }
-  .step-n {
-    position: absolute;
-    left: 20px;
-    top: 18px;
+  .how-n {
     font-family: var(--font-mono);
     font-size: 13px;
     background: var(--ink);
     color: #fff;
     padding: 4px 8px;
+    align-self: flex-start;
   }
-  .step-code {
-    position: absolute;
-    left: 20px;
-    right: 20px;
-    bottom: 22px;
-    background: #fff;
-    padding: 14px 16px;
-    border-radius: 8px;
-    white-space: pre;
-    overflow-x: auto;
-    box-shadow: 0 8px 30px rgba(11, 11, 11, 0.08);
+  .how-key {
+    margin-top: 48px;
+    font-size: 16px;
+    line-height: 1.7;
   }
-  .step-code::before {
-    content: "$ ";
-    color: var(--primary);
+  .how-key .mark {
+    font-family: var(--font-mono);
+    font-size: 14px;
+    margin-right: 8px;
   }
   @media (max-width: 900px) {
-    .steps {
+    .how {
       grid-template-columns: 1fr;
-    }
-    .step-art {
-      height: 220px;
+      margin-top: 36px;
     }
   }
 
-  /* CTA */
-  .cta {
-    text-align: center;
-    padding: 96px var(--gutter);
+  /* Recordings */
+  .demo {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 2.4fr);
+    gap: 24px;
+    margin-top: 64px;
+    align-items: start;
+  }
+  .demo-copy {
+    border-top: 1px solid var(--line-strong);
+    padding-top: 18px;
     display: flex;
     flex-direction: column;
-    align-items: center;
-    gap: 6px;
+    gap: 12px;
   }
-  .cta h2 {
-    margin-bottom: 14px;
-  }
-  .cta .hero-actions {
-    margin-top: 28px;
+  @media (max-width: 900px) {
+    .demo {
+      grid-template-columns: 1fr;
+      gap: 16px;
+      margin-top: 48px;
+    }
   }
 
-  /* Statement */
-  .statement {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-    grid-template-rows: auto auto;
-    position: relative;
-    overflow: hidden;
+  .more {
+    margin-top: 80px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    align-items: flex-start;
   }
-  .statement-copy {
-    padding: 200px var(--gutter) 40px;
-    border-right: 1px solid var(--line);
+  .more-list {
+    margin: 0;
+    width: 100%;
+    border-top: 1px solid var(--line);
+  }
+  .more-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
+    gap: 16px;
+    padding: 12px 0;
     border-bottom: 1px solid var(--line);
   }
-  .statement-copy h2 {
-    line-height: 1.3;
-    font-size: clamp(28px, 2.8vw, 38px);
+  .more-row dt code {
+    font-size: 13.5px;
+    word-break: break-word;
   }
-  .statement-art {
-    grid-column: 2;
-    grid-row: 1 / span 2;
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    object-position: bottom;
-    image-rendering: pixelated;
-    align-self: end;
+  .more-row dd {
+    margin: 0;
+    font-size: 15px;
   }
-  .statement-big {
-    grid-column: 1 / span 2;
-    grid-row: 2;
-    align-self: end;
-    padding: 260px var(--gutter) 0;
-    position: relative;
-    z-index: 1;
-  }
-  .statement-big .eyebrow {
-    display: inline-flex;
-    align-items: center;
-    gap: 12px;
-    margin-bottom: 14px;
-    padding-left: 4px;
-  }
-  .swatch {
-    width: 12px;
-    height: 18px;
-    background: #ff00d4;
-    display: inline-block;
-  }
-  .big-number {
-    font-size: clamp(56px, 9.5vw, 150px);
-    font-weight: 600;
-    letter-spacing: -0.045em;
-    line-height: 1;
-  }
-  .big-number .mark {
-    padding: 0.05em 0.1em;
-  }
-  @media (max-width: 900px) {
-    .statement {
+  @media (max-width: 720px) {
+    .more-row {
       grid-template-columns: 1fr;
-    }
-    .statement-copy {
-      grid-column: 1;
-      padding-top: 64px;
-      border-right: 0;
-    }
-    .statement-art {
-      grid-column: 1;
-      grid-row: 2;
-      max-height: 360px;
-    }
-    .statement-big {
-      grid-column: 1;
-      grid-row: 3;
-      padding: 24px var(--gutter) 0;
-    }
-  }
-
-  /* Stats */
-  .stats-wrap {
-    padding-top: 64px;
-  }
-  .stats {
-    display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-    gap: 8px;
-    margin-top: 28px;
-  }
-  .stat {
-    padding: 28px 18px 24px;
-  }
-  .stat-value {
-    font-size: clamp(32px, 3vw, 44px);
-    font-weight: 600;
-    letter-spacing: -0.03em;
-    line-height: 1;
-  }
-  .stat-label {
-    margin-top: 14px;
-    font-family: var(--font-mono);
-    font-size: 12px;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
-  }
-  @media (max-width: 900px) {
-    .stats {
-      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 4px;
     }
   }
 </style>

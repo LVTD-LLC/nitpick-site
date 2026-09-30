@@ -2,7 +2,7 @@ model = ["nvidia/nemotron-3-ultra-550b-a55b:free"]
 provider = "openrouter"
 fail_on = "high"
 timeout_secs = 420
-ignore = ["package-lock.json", "public/art/**"]
+ignore = ["package-lock.json", "public/art/**", "public/casts/**"]
 instructions = """
 This is a static Astro marketing site for the nitpick CLI. There is no server code.
 Focus on: broken or misleading copy about nitpick's actual behavior, accessibility

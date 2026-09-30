@@ -1,0 +1,158 @@
+---
+/**
+ * An asciinema recording, rendered with asciinema-player and postered at the
+ * end so the finished output is readable before anyone presses play.
+ * `src` is a path under public/, e.g. /casts/review.cast.
+ */
+interface Props {
+  src: string;
+  command: string;
+  /** Terminal rows to play back in. Larger than the recording keeps the whole output on screen. */
+  rows?: number;
+}
+
+const { src, command, rows: rowsOverride } = Astro.props;
+
+const IDLE_LIMIT = 2;
+// Every cast is bundled as raw text at build time so the header and timing can be read here.
+const casts = import.meta.glob<string>("../../public/casts/*.cast", { query: "?raw", import: "default", eager: true });
+const text = casts[`../../public${src}`];
+if (text === undefined) throw new Error(`Cast not found under public/: ${src}`);
+const lines = text.split("\n").filter(Boolean);
+const header = JSON.parse(lines[0]) as { term?: { cols?: number; rows?: number } };
+// asciicast v3 stores the interval before each event; the player caps each one at idleTimeLimit.
+let duration = 0;
+for (const line of lines.slice(1)) duration += Math.min((JSON.parse(line) as [number])[0], IDLE_LIMIT);
+const cols = header.term?.cols ?? 80;
+const rows = rowsOverride ?? header.term?.rows ?? 24;
+---
+
+<figure class="cast">
+  <figcaption class="cast-cmd">
+    <span class="cast-lines">
+      {command.split("\n").map((line) => (
+        <span class="cast-line">
+          <span class="prompt">$</span> {line}
+        </span>
+      ))}
+    </span>
+    <span class="cast-hint" aria-hidden="true">scroll →</span>
+  </figcaption>
+  <div class="cast-scroll">
+    <div
+      class="cast-player"
+      data-cast={src}
+      data-poster={`npt:${duration.toFixed(2)}`}
+      data-idle={IDLE_LIMIT}
+      data-cols={cols}
+      data-rows={rows}
+    >
+    </div>
+  </div>
+</figure>
+
+<script>
+  import * as AsciinemaPlayer from "asciinema-player";
+  import "asciinema-player/dist/bundle/asciinema-player.css";
+
+  const mono = "'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace";
+
+  // The player sizes its terminal in `ch` units when it is created. Load the web font first so
+  // the measurement and the glyphs come from the same face; otherwise the last few columns clip.
+  try {
+    await document.fonts.load("400 13px 'IBM Plex Mono'");
+  } catch {
+    // Fall through to the system monospace font.
+  }
+
+  for (const el of document.querySelectorAll<HTMLElement>(".cast-player")) {
+    AsciinemaPlayer.create(el.dataset.cast ?? "", el, {
+      cols: Number(el.dataset.cols),
+      rows: Number(el.dataset.rows),
+      poster: el.dataset.poster,
+      idleTimeLimit: Number(el.dataset.idle),
+      fit: "width",
+      preload: true,
+      theme: "nitpick",
+      terminalFontFamily: mono,
+      terminalLineHeight: 1.45,
+    });
+  }
+</script>
+
+<style>
+  .cast {
+    margin: 0;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    overflow: hidden;
+    background: var(--term-bg);
+  }
+  .cast-cmd {
+    display: flex;
+    justify-content: space-between;
+    gap: 16px;
+    font-family: var(--font-mono);
+    font-size: 13px;
+    color: #fff;
+    background: #1c1c1c;
+    padding: 10px 14px;
+    border-bottom: 1px solid #2a2a2a;
+  }
+  .cast-lines {
+    display: block;
+    min-width: 0;
+  }
+  .cast-line {
+    display: block;
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+  .prompt {
+    color: var(--primary);
+  }
+  .cast-hint {
+    display: none;
+    flex: none;
+    color: #9aa3ad;
+    font-size: 12px;
+  }
+  @media (max-width: 760px) {
+    .cast-hint {
+      display: block;
+    }
+  }
+  .cast-scroll {
+    overflow-x: auto;
+  }
+  /* Below this width a 100-column terminal would be unreadable; scroll it instead of shrinking it. */
+  .cast-player {
+    min-width: 720px;
+  }
+</style>
+
+<style is:global>
+  .asciinema-player-theme-nitpick {
+    --term-color-foreground: #f3f6fb;
+    --term-color-background: #0b0b0b;
+    --term-color-0: #0b0b0b;
+    --term-color-1: #ff4500;
+    --term-color-2: #3ddc84;
+    --term-color-3: #ffd166;
+    --term-color-4: #7aa2ff;
+    --term-color-5: #ff7ab6;
+    --term-color-6: #6ee7f0;
+    --term-color-7: #d9e1ee;
+    --term-color-8: #7c8794;
+    --term-color-9: #ff6a33;
+    --term-color-10: #6ff0a4;
+    --term-color-11: #ffe08a;
+    --term-color-12: #a3bcff;
+    --term-color-13: #ffa3cc;
+    --term-color-14: #9ff2f8;
+    --term-color-15: #ffffff;
+  }
+  .ap-wrapper .ap-player {
+    border-radius: 0;
+  }
+</style>

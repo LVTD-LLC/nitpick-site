@@ -8,16 +8,12 @@
   --primary-ink: #ffffff;
   --surface: #e1e9f2;
   --surface-2: #eef2f8;
-  --paper: #f7f6f1;
   --lemon: #fff9d6;
-  --pink: #ffd5de;
-  --sky: #bfe9ff;
-  --mint: #d7f5e4;
   --line: #d9e1ee;
   --line-strong: #0b0b0b;
   --pill-soft: #e1e9f2;
-  --code-bg: #f3f6fb;
-  --max: 1312px;
+  --term-bg: #0b0b0b;
+  --max: 1120px;
   --gutter: 16px;
   --font-sans: "Instrument Sans", system-ui, -apple-system, "Segoe UI", Arial, sans-serif;
   --font-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
@@ -95,12 +91,12 @@ p {
 }
 
 .pad {
-  padding: 96px var(--gutter);
+  padding: 80px var(--gutter);
 }
 
 @media (max-width: 720px) {
   .pad {
-    padding: 64px var(--gutter);
+    padding: 56px var(--gutter);
   }
 }
 
@@ -120,7 +116,7 @@ p {
 }
 
 .h-section {
-  font-size: clamp(30px, 3.4vw, 45px);
+  font-size: clamp(28px, 3.2vw, 40px);
   font-weight: 600;
   line-height: 1.15;
   letter-spacing: -0.025em;
@@ -142,10 +138,6 @@ p {
   color: var(--mute);
 }
 
-.accent {
-  color: var(--primary);
-}
-
 /* Highlight boxes: painted background behind the words, like a marker. */
 .mark {
   display: inline;
@@ -161,18 +153,6 @@ p {
 
 .mark-lemon {
   background: var(--lemon);
-}
-
-.mark-pink {
-  background: var(--pink);
-}
-
-.mark-surface {
-  background: var(--surface);
-}
-
-.mark-sky {
-  background: var(--sky);
 }
 
 /* Pills */
@@ -219,15 +199,6 @@ p {
   background: #d3dded;
 }
 
-.pill-primary {
-  background: var(--primary);
-  color: #fff;
-}
-
-.pill-primary:hover {
-  background: #e63e00;
-}
-
 .pill svg {
   width: 14px;
   height: 14px;
@@ -237,120 +208,6 @@ p {
   font-family: var(--font-mono);
   font-weight: 500;
   font-size: 14px;
-}
-
-/* Mono link with a play triangle, as used under each feature. */
-.mono-link {
-  display: inline-flex;
-  align-items: center;
-  gap: 10px;
-  font-family: var(--font-mono);
-  font-size: 13px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  font-weight: 500;
-  color: var(--ink);
-}
-
-.mono-link::after {
-  content: "";
-  width: 0;
-  height: 0;
-  border-left: 8px solid currentColor;
-  border-top: 5px solid transparent;
-  border-bottom: 5px solid transparent;
-  transition: transform 120ms ease;
-}
-
-.mono-link:hover,
-.mono-link:focus-visible {
-  color: var(--primary-text);
-}
-
-.mono-link:hover::after,
-.mono-link:focus-visible::after {
-  transform: translateX(3px);
-}
-
-.mono-link:focus-visible {
-  outline: 2px solid var(--primary);
-  outline-offset: 4px;
-}
-
-/* Code panels */
-.terminal {
-  font-family: var(--font-mono);
-  font-size: 13px;
-  line-height: 1.6;
-  white-space: pre;
-  overflow-x: auto;
-  color: var(--ink);
-  margin: 0;
-}
-
-.terminal .dim {
-  color: var(--mute);
-}
-
-.terminal .ok {
-  color: #0a8a3a;
-}
-
-.terminal .hot {
-  color: var(--primary);
-}
-
-.terminal .key {
-  color: #1d4ed8;
-}
-
-.terminal .str {
-  color: #7c3aed;
-}
-
-.terminal .tag {
-  display: inline-block;
-  padding: 0 6px;
-  background: var(--surface);
-  border-radius: 3px;
-}
-
-.window {
-  background: #fff;
-  border-radius: 10px;
-  box-shadow: 0 1px 0 rgba(11, 11, 11, 0.06), 0 8px 30px rgba(11, 11, 11, 0.06);
-  overflow: hidden;
-}
-
-.window-bar {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 12px 14px;
-  border-bottom: 1px solid var(--line);
-}
-
-.window-bar .dot {
-  width: 9px;
-  height: 9px;
-  border-radius: 50%;
-  background: #6d83b7;
-  opacity: 0.55;
-}
-
-.window-bar .url {
-  margin-left: 8px;
-  flex: 1;
-  font-family: var(--font-mono);
-  font-size: 12px;
-  color: var(--mute);
-  background: var(--surface-2);
-  border-radius: 999px;
-  padding: 4px 12px;
-}
-
-.window-body {
-  padding: 16px 18px;
 }
 
 .sr-only {

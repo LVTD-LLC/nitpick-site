@@ -22,7 +22,9 @@ jobs:
       - name: Install dependencies
         run: npm ci
       - name: Build site
-        run: npm run build
+        run: |
+          npm run build
+          printf '%s\n' "$GITHUB_SHA" > dist/deployment.txt
       - name: Package for CapRover
         run: tar -czf /tmp/nitpick-site.tar.gz Dockerfile nginx.conf captain-definition dist
       - name: Deploy to CapRover
@@ -37,3 +39,16 @@ jobs:
             --caproverApp "$CAPROVER_APP" \
             --appToken "$CAPROVER_APP_TOKEN" \
             --tarFile /tmp/nitpick-site.tar.gz
+      - name: Verify live deployment
+        run: |
+          for attempt in {1..30}; do
+            deployed_sha=$(curl --fail --silent --show-error --max-time 10 \
+              "https://nitpick.sh/deployment.txt?run=$GITHUB_RUN_ID&attempt=$attempt" || true)
+            if [ "$deployed_sha" = "$GITHUB_SHA" ]; then
+              echo "Verified deployment of $GITHUB_SHA at https://nitpick.sh"
+              exit 0
+            fi
+            sleep 10
+          done
+          echo "The expected commit did not become live at https://nitpick.sh" >&2
+          exit 1

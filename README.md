@@ -27,7 +27,7 @@ The script is deterministic; commit the PNGs it writes.
 
 ## Deploy
 
-Every push to `main` runs `.github/workflows/deploy.yml`: build, tar `Dockerfile` + `nginx.conf` + `captain-definition` + `dist/`, and `caprover deploy` with an app token. Three repository secrets are required:
+Every push to `main` runs `.github/workflows/deploy.yml`: build, tar `Dockerfile` + `nginx.conf` + `captain-definition` + `dist/`, and `caprover deploy` with an app token. The workflow waits until `https://nitpick.sh/deployment.txt` reports the deployed commit before marking the run successful. Three repository secrets are required:
 
 | secret | value |
 |---|---|

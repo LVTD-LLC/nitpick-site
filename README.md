@@ -2,7 +2,7 @@
 
 Marketing site for [nitpick](https://github.com/LVTD-LLC/nitpick), AI code review for AI agents.
 
-Static [Astro](https://astro.build) site, served by nginx from a CapRover app. Live at https://nitpick.cr.lvtd.dev.
+Static [Astro](https://astro.build) site, served by nginx from a CapRover app. Live at https://nitpick.sh.
 
 ## Develop
 

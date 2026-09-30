@@ -9,8 +9,8 @@ interface Props {
 }
 
 const { title, description } = Astro.props;
-const canonical = new URL(Astro.url.pathname, Astro.site ?? "https://nitpick.cr.lvtd.dev");
-const ogImage = new URL("/art/hero.png", Astro.site ?? "https://nitpick.cr.lvtd.dev");
+const canonical = new URL(Astro.url.pathname, Astro.site ?? "https://nitpick.sh");
+const ogImage = new URL("/art/hero.png", Astro.site ?? "https://nitpick.sh");
 ---
 
 <!doctype html>

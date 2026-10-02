@@ -4,7 +4,7 @@ import Cast from "../components/Cast.astro";
 
 const title = "nitpick — double-check the code your AI agent writes";
 const description =
-  "nitpick sends your diff, the changed files, and the code around them to a second model on OpenRouter and prints findings your agent fixes before opening the PR. One command, exit code 1 when it matters.";
+  "nitpick sends your diff, the changed files, and the code around them to a second model on OpenRouter and prints findings your agent fixes before opening the PR. One command, or none: hook it into your agent and it reviews each batch of edits in the background.";
 
 // The prompt a user pastes into their coding agent. Everything in it must stay true to
 // github.com/LVTD-LLC/nitpick and github.com/LVTD-LLC/nitpick-skills.
@@ -17,10 +17,11 @@ const prompt = `Set up nitpick, an AI code reviewer, on this machine and in this
    Claude Code: claude plugin marketplace add LVTD-LLC/nitpick-skills && claude plugin install nitpick@nitpick-skills
    Codex: codex plugin marketplace add LVTD-LLC/nitpick-skills && codex plugin add nitpick@nitpick-skills
    OpenClaw: openclaw plugins install git:github.com/LVTD-LLC/nitpick-skills@main
-   Cursor, OpenCode, or anything else: git clone https://github.com/LVTD-LLC/nitpick-skills ~/.local/share/nitpick-skills && ~/.local/share/nitpick-skills/install.sh
+   Cursor, pi, OpenCode, or anything else: git clone https://github.com/LVTD-LLC/nitpick-skills ~/.local/share/nitpick-skills && ~/.local/share/nitpick-skills/install.sh
 3. Check that NITPICK_OPENROUTER_API_KEY is exported. If it is not, ask me for an OpenRouter key and tell me how to export it in my shell. Never write the key into a file.
-4. From the repo root, run \`nitpick init\` if there is no .nitpick.toml and fill in its \`instructions\` with this project's conventions. Then run \`nitpick context\` to confirm it works, and tell me what you did.
-5. From now on, run \`nitpick\` before opening a pull request. Fix every finding at severity high or blocker and run it again until it exits 0.`;
+4. From the repo root, run \`nitpick init\` if there is no .nitpick.toml and fill in its \`instructions\` with this project's conventions. Then run \`nitpick context\` to confirm it works.
+5. Turn on background review for this repo: \`nitpick watch install <harness>\` where harness is claude, codex, cursor, pi, opencode or openclaw (skip this if you installed the Claude Code or Codex plugin in step 2; Codex users must trust the hooks once with /hooks). From now on, when a note starting with [nitpick] appears, finish your current step, then fix what it reports or say in one line why it is wrong.
+6. Still run \`nitpick\` before opening a pull request. Fix every finding at severity high or blocker and run it again until it exits 0. Tell me what you did.`;
 
 const brew = "brew install LVTD-LLC/tap/nitpick";
 
@@ -40,6 +41,11 @@ const how = [
     title: "It returns findings with an exit code.",
     body: "Each finding cites path:line in the post-change file with a severity, a category, and a suggestion. Exit 1 when anything is at or above --fail-on (high by default), so the agent fixes, reruns, and only opens the PR at exit 0.",
   },
+  {
+    n: "04",
+    title: "Or it watches, and the agent never runs anything.",
+    body: "nitpick watch hooks into Claude Code, Codex, Cursor, pi, OpenCode or OpenClaw. After each burst of edits a background worker reviews only what changed since it last looked; findings reach the agent as a [nitpick] note after its next tool call, and a stop hook sends it back for anything high or blocker. A review that could not run is logged, not reported as a failure, so free models are fine here.",
+  },
 ];
 
 const more = [
@@ -51,6 +57,9 @@ const more = [
   ["nitpick --fail-on medium", "stricter exit code"],
   ["nitpick --provider ollama -m qwen3-coder:30b", "local model, no key"],
   ["nitpick init", "write a starter .nitpick.toml"],
+  ["nitpick watch install claude --global", "background review in every repo, for one harness"],
+  ["nitpick watch status", "is it on, what is waiting, what it found"],
+  ["nitpick watch log", "every background finding so far"],
 ];
 ---
 
@@ -64,7 +73,8 @@ const more = [
       </h1>
       <p class="lede hero-lede">
         nitpick sends the diff, the changed files, and the code around them to a different model, and prints findings
-        the agent fixes before opening the PR. One command. Exit code 1 when it matters.
+        the agent fixes before opening the PR. One command, or none: hook it into the agent and it reviews each burst of
+        edits in the background.
       </p>
     </div>
   </section>
@@ -75,9 +85,9 @@ const more = [
       <div class="install-head">
         <h2 class="h-section">Paste this into your agent.</h2>
         <p class="muted install-sub">
-          It installs the CLI and the nitpick skill, checks for an OpenRouter key, and tells the agent to review before
-          every pull request. Works in Claude Code, Codex, Cursor, OpenClaw, OpenCode, and anything that reads Agent
-          Skills.
+          It installs the CLI and the nitpick skill, checks for an OpenRouter key, turns on background review for the
+          repo, and tells the agent to review before every pull request. Works in Claude Code, Codex, Cursor, pi,
+          OpenClaw, OpenCode, and anything that reads Agent Skills.
         </p>
       </div>
       <div class="prompt-box">

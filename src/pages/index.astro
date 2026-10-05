@@ -8,20 +8,22 @@ const description =
 
 // The prompt a user pastes into their coding agent. Everything in it must stay true to
 // github.com/LVTD-LLC/nitpick and github.com/LVTD-LLC/nitpick-skills.
-const prompt = `Set up nitpick, an AI code reviewer, on this machine and in this repo.
+const prompt = `Set up nitpick, an AI code reviewer, globally for this user so it reviews work in every new session of this harness.
 
-1. Install the CLI if \`nitpick --version\` fails:
+1. Check \`nitpick --version\` and \`nitpick watch --help\`. Install the CLI if absent:
    brew install LVTD-LLC/tap/nitpick
    Without Homebrew (needs Rust 1.98+): cargo install --git https://github.com/LVTD-LLC/nitpick
+   If already installed, check for an upgrade: brew update && brew upgrade nitpick, or cargo install --git https://github.com/LVTD-LLC/nitpick --force.
 2. Install the nitpick skill for the harness you are running in:
    Claude Code: claude plugin marketplace add LVTD-LLC/nitpick-skills && claude plugin install nitpick@nitpick-skills
    Codex: codex plugin marketplace add LVTD-LLC/nitpick-skills && codex plugin add nitpick@nitpick-skills
    OpenClaw: openclaw plugins install git:github.com/LVTD-LLC/nitpick-skills@main
    Cursor, pi, OpenCode, or anything else: git clone https://github.com/LVTD-LLC/nitpick-skills ~/.local/share/nitpick-skills && ~/.local/share/nitpick-skills/install.sh
-3. Check that NITPICK_OPENROUTER_API_KEY is exported. If it is not, ask me for an OpenRouter key and tell me how to export it in my shell. Never write the key into a file.
-4. From the repo root, run \`nitpick init\` if there is no .nitpick.toml and fill in its \`instructions\` with this project's conventions. Then run \`nitpick context\` to confirm it works.
-5. Turn on background review for this repo: \`nitpick watch install <harness>\` where harness is claude, codex, cursor, pi, opencode or openclaw (skip this if you installed the Claude Code or Codex plugin in step 2; Codex users must trust the hooks once with /hooks). From now on, when a note starting with [nitpick] appears, finish your current step, then fix what it reports or say in one line why it is wrong.
-6. Still run \`nitpick\` before opening a pull request. Fix every finding at severity high or blocker and run it again until it exits 0. Tell me what you did.`;
+3. Configure provider access for the hook environment, not just the terminal. GUI-launched agents may not inherit shell exports. Use api_key in ~/.config/nitpick/config.toml with owner-only permissions (chmod 600). Ask me to configure it, or get my explicit permission to securely save my existing key. Never print keys or write them into a repository. Set a free background model in the user-level [watch] table, for example nvidia/nemotron-3-ultra-550b-a55b:free.
+4. For Codex, explicitly run nitpick watch install codex --global even if the plugin is installed; plugin installation alone is not proof of hook discovery. For Claude Code with its plugin installed, verify the plugin hooks instead of adding duplicate global hooks. For other harnesses or Claude Code without the plugin, run nitpick watch install <harness> --global. Use one active set, removing or disabling duplicate project/plugin registrations after global activation.
+5. For Codex, tell me to restart it, open /hooks or desktop Hooks settings, and enable AND trust all four nitpick entries under User config. Do not bypass trust. Explain that trust and enabled are separate states. Omit --global only if I explicitly request a project-only installation.
+6. Verify in a fresh session in another workspace: an edit should produce a completed model review in nitpick watch status, and findings should reach the agent through a hook. A temporary planted bug can verify delivery; remove it afterward. A successful terminal review, an enabled plugin, or enabled: yes is not enough. Report any activation or verification step still pending. When [nitpick] notes arrive, verify them, fix real issues, and dismiss false positives briefly.
+7. Still run nitpick before opening a pull request. Fix or explicitly dismiss high/blocker findings. Report provider failures honestly; do not call them a passing review.`;
 
 const brew = "brew install LVTD-LLC/tap/nitpick";
 
@@ -44,7 +46,7 @@ const how = [
   {
     n: "04",
     title: "Or it watches, and the agent never runs anything.",
-    body: "nitpick watch hooks into Claude Code, Codex, Cursor, pi, OpenCode or OpenClaw. After each burst of edits a background worker reviews only what changed since it last looked; findings reach the agent as a [nitpick] note after its next tool call, and a stop hook sends it back for anything high or blocker. A review that could not run is logged, not reported as a failure, so free models are fine here.",
+    body: "nitpick watch hooks into Claude Code, Codex, Cursor, pi, OpenCode or OpenClaw. With global hooks installed, each workspace gets a background worker that reviews only what changed since it last looked; findings reach the agent as a [nitpick] note after its next tool call, and the stop hook returns immediately while reviews continue. Blocking on high or blocker findings is opt-in. It also watches source files in plain folders without Git, sending changed source files without related repository context. A review that could not run is logged, not reported as a failure, so free models are fine here.",
   },
 ];
 
@@ -85,8 +87,8 @@ const more = [
       <div class="install-head">
         <h2 class="h-section">Paste this into your agent.</h2>
         <p class="muted install-sub">
-          It installs the CLI and the nitpick skill, checks for an OpenRouter key, turns on background review for the
-          repo, and tells the agent to review before every pull request. Works in Claude Code, Codex, Cursor, pi,
+          It installs the CLI and the nitpick skill, configures provider access for background hooks, turns on review
+          across workspaces, and tells the agent to review before every pull request. Works in Claude Code, Codex, Cursor, pi,
           OpenClaw, OpenCode, and anything that reads Agent Skills.
         </p>
       </div>
@@ -128,7 +130,7 @@ const more = [
       </ol>
       <p class="how-key">
         <span class="mark mark-lemon">export NITPICK_OPENROUTER_API_KEY=sk-or-…</span>
-        <span class="muted">is the whole setup. Get a key at openrouter.ai; models are billed per token, and several are free.</span>
+        <span class="muted">works for terminal sessions. For GUI background hooks, configure <code>api_key</code> in <code>~/.config/nitpick/config.toml</code> with owner-only permissions (<code>chmod 600</code>). Get a key at openrouter.ai; models are billed per token, and several are free.</span>
       </p>
     </div>
   </section>

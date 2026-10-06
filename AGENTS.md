@@ -4,9 +4,9 @@ Instructions for coding agents working in this repository. `CLAUDE.md` points he
 
 ## What this is
 
-The marketing site for nitpick (https://github.com/LVTD-LLC/nitpick). A static Astro site with one landing page and a 404 page. The page has four parts, in order: a headline, a prompt the visitor pastes into their coding agent to install the CLI and the nitpick skill, a short explanation of how nitpick works (it sends the change to a second model through OpenRouter), and real terminal recordings of a few commands. Keep it that short.
+The marketing site for nitpick (https://github.com/LVTD-LLC/nitpick). A static Astro site with one landing page and a 404 page. The page has four parts, in order: a headline, a one-line prompt the visitor pastes into their coding agent, pointing it at the `nitpick-setup` skill, a short explanation of how nitpick works (it sends the change to a second model through OpenRouter), and real terminal recordings of a few commands. Keep it that short.
 
-Everything the site says about nitpick must be true of the CLI as documented in its README, and everything in the paste-in prompt must be true of https://github.com/LVTD-LLC/nitpick-skills. Do not invent features, numbers, customers, or benchmarks. When the CLI or the skill changes, update the copy and the prompt here.
+Everything the site says about nitpick must be true of the CLI as documented in its README, and the paste-in prompt must point at the `nitpick-setup` skill in https://github.com/LVTD-LLC/nitpick-skills (the setup steps live there, not here). Do not invent features, numbers, customers, or benchmarks. When the CLI or the skill changes, update the copy and the prompt here.
 
 ## Commands
 

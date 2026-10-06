@@ -6,24 +6,10 @@ const title = "nitpick — double-check the code your AI agent writes";
 const description =
   "nitpick sends your diff, the changed files, and the code around them to a second model on OpenRouter and prints findings your agent fixes before opening the PR. One command, or none: hook it into your agent and it reviews each batch of edits in the background.";
 
-// The prompt a user pastes into their coding agent. Everything in it must stay true to
-// github.com/LVTD-LLC/nitpick and github.com/LVTD-LLC/nitpick-skills.
-const prompt = `Set up nitpick, an AI code reviewer, globally for this user so it reviews work in every new session of this harness.
-
-1. Check \`nitpick --version\` and \`nitpick watch --help\`. Install the CLI if absent:
-   brew install LVTD-LLC/tap/nitpick
-   Without Homebrew (needs Rust 1.98+): cargo install --git https://github.com/LVTD-LLC/nitpick
-   If already installed, check for an upgrade: brew update && brew upgrade nitpick, or cargo install --git https://github.com/LVTD-LLC/nitpick --force.
-2. Install the nitpick skill for the harness you are running in:
-   Claude Code: claude plugin marketplace add LVTD-LLC/nitpick-skills && claude plugin install nitpick@nitpick-skills
-   Codex: codex plugin marketplace add LVTD-LLC/nitpick-skills && codex plugin add nitpick@nitpick-skills
-   OpenClaw: openclaw plugins install git:github.com/LVTD-LLC/nitpick-skills@main
-   Cursor, pi, OpenCode, or anything else: git clone https://github.com/LVTD-LLC/nitpick-skills ~/.local/share/nitpick-skills && ~/.local/share/nitpick-skills/install.sh
-3. Configure provider access for the hook environment, not just the terminal. GUI-launched agents may not inherit shell exports. Use api_key in ~/.config/nitpick/config.toml with owner-only permissions (chmod 600). Ask me to configure it, or get my explicit permission to securely save my existing key. Never print keys or write them into a repository. Set a free background model in the user-level [watch] table, for example nvidia/nemotron-3-ultra-550b-a55b:free.
-4. For Codex, explicitly run nitpick watch install codex --global even if the plugin is installed; plugin installation alone is not proof of hook discovery. For Claude Code with its plugin installed, verify the plugin hooks instead of adding duplicate global hooks. For other harnesses or Claude Code without the plugin, run nitpick watch install <harness> --global. Use one active set, removing or disabling duplicate project/plugin registrations after global activation.
-5. For Codex, tell me to restart it, open /hooks or desktop Hooks settings, and enable AND trust all four nitpick entries under User config. Do not bypass trust. Explain that trust and enabled are separate states. Omit --global only if I explicitly request a project-only installation.
-6. Verify in a fresh session in another workspace: an edit should produce a completed model review in nitpick watch status, and findings should reach the agent through a hook. A temporary planted bug can verify delivery; remove it afterward. A successful terminal review, an enabled plugin, or enabled: yes is not enough. Report any activation or verification step still pending. When [nitpick] notes arrive, verify them, fix real issues, and dismiss false positives briefly.
-7. Still run nitpick before opening a pull request. Fix or explicitly dismiss high/blocker findings. Report provider failures honestly; do not call them a passing review.`;
+// The prompt a user pastes into their coding agent. The setup steps live in the
+// nitpick-setup skill in github.com/LVTD-LLC/nitpick-skills; keep this a pointer to it.
+const prompt =
+  "Set up nitpick for me by following https://raw.githubusercontent.com/LVTD-LLC/nitpick-skills/main/plugins/nitpick/skills/nitpick-setup/SKILL.md";
 
 const brew = "brew install LVTD-LLC/tap/nitpick";
 
@@ -59,7 +45,7 @@ const more = [
   ["nitpick --fail-on medium", "stricter exit code"],
   ["nitpick --provider ollama -m qwen3-coder:30b", "local model, no key"],
   ["nitpick init", "write a starter .nitpick.toml"],
-  ["nitpick watch install claude --global", "background review in every repo, for one harness"],
+  ["nitpick watch install codex --global", "background review in every repo (Claude Code: the plugin does this)"],
   ["nitpick watch status", "is it on, what is waiting, what it found"],
   ["nitpick watch log", "every background finding so far"],
 ];
@@ -87,9 +73,9 @@ const more = [
       <div class="install-head">
         <h2 class="h-section">Paste this into your agent.</h2>
         <p class="muted install-sub">
-          It installs the CLI and the nitpick skill, configures provider access for background hooks, turns on review
-          across workspaces, and tells the agent to review before every pull request. Works in Claude Code, Codex, Cursor, pi,
-          OpenClaw, OpenCode, and anything that reads Agent Skills.
+          The agent follows the nitpick setup skill: it installs the CLI and the plugin, asks for a model key, turns on
+          background review in every workspace, and checks that it works. Claude Code, Codex, Cursor, pi, OpenClaw,
+          OpenCode, and anything that reads Agent Skills.
         </p>
       </div>
       <div class="prompt-box">

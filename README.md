@@ -43,3 +43,33 @@ caprover deploy -n captain-01 -a nitpick -t /tmp/nitpick-site.tar.gz
 ## Review
 
 Run `nitpick` from the repo root before opening a PR; `.nitpick.toml` carries the site-specific instructions. It needs `NITPICK_OPENROUTER_API_KEY` in the environment.
+
+## IndexNow
+
+`public/indexnow-key.txt` is the public ownership proof (not a private API credential).
+The **IndexNow public URL changes** workflow runs after a successful **Deploy site**,
+hourly at :41 UTC, or manually. It verifies the live `deployment.txt` revision and
+ownership file, reads the public sitemap, and notifies IndexNow of current pages
+on deployments plus changed/removed URLs since its last accepted checkpoint.
+The 404 page and static assets are not submitted. Future public Astro pages are
+included through the existing sitemap generator.
+
+The Python standard-library script retries transient failures, batches at 10,000
+URLs, and saves state only after every batch returns HTTP 200 or 202. A 202 means
+key validation is pending; neither status guarantees indexing. Failed notifications
+fail the separate workflow and retry on the next hourly run; deployment itself is
+not marked failed by a search-engine outage.
+
+GitHub Actions cache stores the checkpoint. Cache eviction causes a full current-URL
+submission and loses historical removals. Pages created and deleted between successful
+checks cannot be observed. Static content changes require deployment; each new revision
+resubmits current pages even though the sitemap has no lastmod values.
+
+```bash
+python3 scripts/indexnow.py --site-url https://nitpick.sh --dry-run
+python3 scripts/indexnow.py --site-url https://nitpick.sh --state indexnow-state.json --force
+uv run --with pytest pytest scripts/test_indexnow.py
+```
+
+The second command sends real notifications. For routine operation, use the GitHub
+workflow so its shared checkpoint remains authoritative. Protocol: https://www.indexnow.org/documentation

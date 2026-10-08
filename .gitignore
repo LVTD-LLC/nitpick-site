@@ -22,3 +22,8 @@ pnpm-debug.log*
 
 # jetbrains setting folder
 .idea/
+
+# Local IndexNow checkpoint and Python test artifacts
+indexnow-state.json
+__pycache__/
+.pytest_cache/

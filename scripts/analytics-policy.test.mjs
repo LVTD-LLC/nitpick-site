@@ -19,3 +19,12 @@ test('drops unknown properties and sanitizes raw exceptions', () => {
   assert.ok(!JSON.stringify(clean).includes('PRIVATE_MARKER'));
   assert.equal(clean.source, 'web');
 });
+
+test('redacted stack frames retain required PostHog manual-capture schema', () => {
+  const clean = scrubProperties({ '$exception_list': [{ type: 'TypeError', value: 'secret', stacktrace: { frames: [{ filename: 'https://nitpick.sh/_astro/app.js?secret=value', lineno: 7, colno: 2 }] } }] });
+  const frame = clean.$exception_list[0].stacktrace.frames[0];
+  assert.equal(frame.platform, 'custom');
+  assert.equal(frame.lang, 'javascript');
+  assert.equal(frame.function, 'redacted');
+  assert.equal(frame.filename, 'https://nitpick.sh/_astro/app.js');
+});

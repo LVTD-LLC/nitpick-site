@@ -36,6 +36,8 @@ export function scrubProperties(properties: Record<string, unknown>): Record<str
         value: "Browser error (message omitted for privacy)",
         mechanism: { handled: false, synthetic: true, type: "generic" },
         stacktrace: { type: "raw", frames: (e?.stacktrace?.frames ?? []).slice(0, 30).map((f: Record<string, unknown>) => ({
+          // Required by the manual error-capture schema; all are fixed safe values.
+          platform: "custom", lang: "javascript", function: "redacted", resolved: true,
           filename: typeof f.filename === "string" && f.filename.startsWith("https://nitpick.sh/_astro/") ? f.filename.split(/[?#]/)[0] : "redacted",
           lineno: typeof f.lineno === "number" ? f.lineno : undefined,
           colno: typeof f.colno === "number" ? f.colno : undefined,

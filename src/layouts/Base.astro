@@ -38,6 +38,7 @@ const ogImage = new URL("/art/hero.png", Astro.site ?? "https://nitpick.sh");
   </head>
   <body>
     <a class="skip" href="#main">Skip to content</a>
+    <script>import "../lib/analytics";</script>
     <Nav />
     <main id="main">
       <slot />

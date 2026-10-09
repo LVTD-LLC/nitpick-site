@@ -52,6 +52,7 @@ const rows = rowsOverride ?? header.term?.rows ?? 24;
 </figure>
 
 <script>
+  import { capture } from "../lib/analytics";
   import * as AsciinemaPlayer from "asciinema-player";
   import "asciinema-player/dist/bundle/asciinema-player.css";
 
@@ -66,7 +67,7 @@ const rows = rowsOverride ?? header.term?.rows ?? 24;
   }
 
   for (const el of document.querySelectorAll<HTMLElement>(".cast-player")) {
-    AsciinemaPlayer.create(el.dataset.cast ?? "", el, {
+    const player = AsciinemaPlayer.create(el.dataset.cast ?? "", el, {
       cols: Number(el.dataset.cols),
       rows: Number(el.dataset.rows),
       poster: el.dataset.poster,
@@ -76,6 +77,14 @@ const rows = rowsOverride ?? header.term?.rows ?? 24;
       theme: "nitpick",
       terminalFontFamily: mono,
       terminalLineHeight: 1.45,
+    });
+    let captured = false;
+    player.addEventListener("play", () => {
+      if (captured) return;
+      captured = true;
+      const file = el.dataset.cast;
+      const demo = file === "/casts/review.cast" ? "review" : file === "/casts/json.cast" ? "json" : "context";
+      capture("demo_played", { demo });
     });
   }
 </script>

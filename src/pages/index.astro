@@ -191,6 +191,7 @@ const more = [
 </Base>
 
 <script>
+  import { capture } from "../lib/analytics";
   // Clipboard API first; fall back to a selection copy where the API is missing or denied.
   async function copyText(text: string): Promise<boolean> {
     try {
@@ -222,6 +223,7 @@ const more = [
       const label = btn.querySelector<HTMLElement>(".copy-label");
       const original = label?.textContent ?? "";
       const ok = await copyText(btn.dataset.copy ?? "");
+      capture("install_prompt_copied", { success: ok });
       if (label) label.textContent = ok ? "Copied" : "Copy failed";
       window.setTimeout(() => {
         if (label) label.textContent = original;

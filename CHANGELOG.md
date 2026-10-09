@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-10-09
+
+- Add PostHog website analytics, explicit conversion events, web vitals, sanitized errors, and masked session replay sampling. Add a privacy page, browser opt-out, DNT/GPC support, and payload-redaction tests.
+
 ## 2026-10-08
 
 - Add a public IndexNow ownership file and automated sitemap notifications after verified deployments and hourly retry checks. Track accepted revisions and URLs, including removals, with bounded retries and success-only checkpoints.

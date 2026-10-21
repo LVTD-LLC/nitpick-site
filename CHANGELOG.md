@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-10-21
+
+- Disable PostHog exception capture (error tracking): set `capture_exceptions: false`, drop any `$exception` event in `before_send`, and remove the exception-property scrubbing and its tests. Pageviews, web vitals, conversion events and replay are unchanged.
+
 ## 2026-10-09 — error-tracking follow-up
 
 - Preserve required fixed platform/language/function metadata in redacted stack frames so browser exceptions group into PostHog issues. Add a regression test for the wire schema.

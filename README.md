@@ -84,14 +84,14 @@ non-production hostnames do not capture events.
 
 [Nitpick project](https://us.posthog.com/project/654831): `$pageview`, `$pageleave`,
 web vitals, `install_prompt_copied` (success boolean), `outbound_link_clicked`
-(destination category), `demo_played` (demo category), and sanitized `$exception`.
+(destination category), and `demo_played` (demo category). Exception capture
+(PostHog error tracking) is disabled.
 Pageviews supply web analytics; anonymous browser IDs support returning-visitor
 analysis, not identifying names/emails. Website and CLI identities are separate.
 No arbitrary DOM autocapture. Privacy controls, collection details and opt-out
 are at `/privacy/`. Replay sampling is 20% in project settings, with text/input
 masking and terminal demos blocked. Query/hash/unknown-path visits cannot replay.
-Console/network payload recording is disabled. Browser errors retain deployed
-bundle line/column locations, not raw messages; source-map upload is not configured.
+Console/network payload recording is disabled. Browser errors are not captured.
 
 `src/lib/analytics-policy.ts` is the allowlist/redaction boundary. Run
 `node --experimental-strip-types --test scripts/analytics-policy.test.mjs` and

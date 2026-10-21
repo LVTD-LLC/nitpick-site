@@ -18,7 +18,7 @@ if (initialized) {
     autocapture: false,
     capture_pageview: true,
     capture_pageleave: true,
-    capture_exceptions: true,
+    capture_exceptions: false,
     capture_performance: { web_vitals: true },
     disable_session_recording: privateVisit,
     enable_recording_console_log: false,
@@ -32,6 +32,7 @@ if (initialized) {
     },
     before_send: (event) => {
       if (!event || optedOut()) return null;
+      if (event.event === "$exception") return null;
       if (event.event === "$snapshot") return privateVisit ? null : event;
       event.properties = scrubProperties(event.properties ?? {});
       return event;
